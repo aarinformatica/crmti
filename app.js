@@ -57,8 +57,17 @@ function initSharedServices() {
     ably = new window.Ably.Realtime(ABLY_KEY);
     chatChannel = ably.channels.get('netpulse-global-chat');
     
+    // Escuta global do chat e de alertas de conexão
     chatChannel.subscribe('msg', (msg) => {
         renderChatMessage(msg.data.sender, msg.data.text);
+    });
+
+    // O canal global ouve o pedido do cliente para garantir que o Admin receba mesmo se canais dinâmicos falharem
+    chatChannel.subscribe('alerta-conexao', (msg) => {
+        if (currentRole === 'admin' && currentToken && msg.data.token === currentToken) {
+            console.log("Alerta global recebido. Token confere! Abrindo modal.");
+            exibirModalAceite();
+        }
     });
 }
 
@@ -72,7 +81,9 @@ function gerarTokenAtendimento() {
         tokenDisplay.textContent = currentToken;
         tokenDisplay.style.color = '#22c55e';
     }
-    conectarCanalSinalizacao(currentToken);
+    // Cria o canal de sinalização para quando o WebRTC começar
+    signalingChannel = ably.channels.get(`signaling-${currentToken}`);
+    configurarEscutasWebRTC();
 }
 
 // ==========================================
@@ -87,42 +98,36 @@ async function iniciarTransmissaoCliente() {
     }
 
     try {
-        // Captura a tela do cliente nativamente via HTTPS
+        // Captura a tela primeiro
         localStream = await navigator.mediaDevices.getDisplayMedia({
             video: { cursor: "always" },
             audio: false
         });
         
-        conectarCanalSinalizacao(tokenInput);
+        signalingChannel = ably.channels.get(`signaling-${tokenInput}`);
+        configurarEscutasWebRTC();
         
-        // Dispara um sinal leve dizendo ao admin: "Já estou com a tela capturada, pode abrir o modal"
-        signalingChannel.publish('cliente-pronto', { pronto: true });
-        console.log("Solicitação enviada ao Admin. Aguardando aceite...");
+        // Envia o alerta usando o canal global (garante a entrega e ativa o modal do Admin)
+        chatChannel.publish('alerta-conexao', { token: tokenInput });
+        console.log("Solicitação enviada via canal core. Aguardando aceite do técnico...");
 
     } catch (err) {
         console.error("Erro na captura de tela:", err);
-        alert("Para transmitir, você precisa selecionar uma tela/aba na janela do navegador.");
+        alert("Para transmitir, selecione uma tela na janela flutuante.");
     }
 }
 
 // ==========================================
-// CORE SINALIZAÇÃO WEBRTC (SINCRONIZADO)
+// CORE SINALIZAÇÃO WEBRTC
 // ==========================================
-function conectarCanalSinalizacao(token) {
-    if (!ably) return;
-
-    signalingChannel = ably.channels.get(`signaling-${token}`);
+function configurarEscutasWebRTC() {
+    if (!signalingChannel) return;
 
     if (currentRole === 'admin') {
         
-        // 1. Recebe o aviso de que o cliente já capturou a tela
-        signalingChannel.subscribe('cliente-pronto', (msg) => {
-            exibirModalAceite();
-        });
-
-        // 3. Recebe a oferta de vídeo configurada do cliente
+        // Recebe a oferta de vídeo do cliente
         signalingChannel.subscribe('sdp-offer', async (msg) => {
-            console.log("Oferta recebida. Configurando canal de vídeo remotos...");
+            console.log("Oferta recebida. Abrindo conexão WebRTC...");
             
             criarPeerConnection();
             await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.data.sdp));
@@ -130,28 +135,25 @@ function conectarCanalSinalizacao(token) {
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             
-            // Devolve a resposta ao cliente
             signalingChannel.publish('sdp-answer', { sdp: answer });
         });
 
-        // Recebe os candidatos de rede do cliente
+        // Recebe caminhos de rede
         signalingChannel.subscribe('candidate', async (msg) => {
             if (peerConnection && msg.data.candidate) {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(msg.data.candidate));
-                } catch(e) { console.warn("Aguardando alinhamento de rede..."); }
+                } catch(e) { console.warn("Sincronizando rede..."); }
             }
         });
 
     } else if (currentRole === 'cliente') {
         
-        // 2. O Admin clicou em OK! Agora o cliente cria o circuito e envia o SDP com segurança
+        // Recebe o sinal de que o Admin clicou em OK no modal
         signalingChannel.subscribe('admin-autorizou', async () => {
-            console.log("Admin aceitou! Iniciando transmissão de dados estruturados...");
+            console.log("Admin aceitou no modal! Transmitindo dados de mídia...");
             
             criarPeerConnection();
-            
-            // Força a inserção das faixas de vídeo da tela capturada
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
             const offer = await peerConnection.createOffer();
@@ -160,18 +162,17 @@ function conectarCanalSinalizacao(token) {
             signalingChannel.publish('sdp-offer', { sdp: offer });
         });
 
-        // 4. Recebe a resposta do Admin e consolida o canal visual
+        // Recebe a resposta final do Admin
         signalingChannel.subscribe('sdp-answer', async (msg) => {
-            console.log("Conexão WebRTC fechada com sucesso!");
+            console.log("Circuito WebRTC finalizado!");
             await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.data.sdp));
         });
 
-        // Recebe os candidatos de rede do Admin
         signalingChannel.subscribe('candidate', async (msg) => {
             if (peerConnection && msg.data.candidate) {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(msg.data.candidate));
-                } catch(e) { console.warn("Aguardando alinhamento de rede..."); }
+                } catch(e) { console.warn("Sincronizando rede..."); }
             }
         });
     }
@@ -180,25 +181,22 @@ function conectarCanalSinalizacao(token) {
 function criarPeerConnection() {
     peerConnection = new RTCPeerConnection(rtcConfig);
 
-    // Envia os caminhos de rede imediatamente via Ably assim que gerados
     peerConnection.onicecandidate = (event) => {
         if (event.candidate && signalingChannel) {
             signalingChannel.publish('candidate', { candidate: event.candidate });
         }
     };
 
-    // [ADMIN] Renderiza o vídeo em tempo real assim que o sinal chega
     if (currentRole === 'admin') {
         peerConnection.ontrack = (event) => {
-            console.log("Fluxo de vídeo recebido com sucesso no Admin!");
+            console.log("Stream de vídeo acoplado ao painel do Admin!");
             const videoElement = document.getElementById('adminVideoStream');
             if (videoElement && event.streams[0]) {
                 videoElement.srcObject = event.streams[0];
                 
-                // Força o play removendo qualquer limitação de renderização
                 setTimeout(() => {
-                    videoElement.play().catch(err => console.error("Falha no play do elemento de vídeo:", err));
-                }, 100);
+                    videoElement.play().catch(err => console.error("Erro ao forçar play:", err));
+                }, 150);
             }
         };
     }
@@ -208,7 +206,6 @@ function criarPeerConnection() {
 // UI - MODAL DINÂMICO
 // ==========================================
 function exibirModalAceite() {
-    // Evita duplicar modais na tela
     if (document.getElementById('modal-webrtc-overlay')) return;
 
     const overlay = document.createElement('div');
@@ -235,7 +232,7 @@ function exibirModalAceite() {
         <p style="font-size: 14px; color: #8892b0; margin-bottom: 25px; line-height: 1.5; font-family: sans-serif;">
             O cliente inseriu o token com sucesso e está aguardando você autorizar o recebimento da tela dele.
         </p>
-        <button id="btnAceitarConexao" style="background: #22c55e; color: #000; border: none; padding: 12px 30px; font-size: 15px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; transition: 0.2s;">
+        <button id="btnAceitarConexao" style="background: #22c55e; color: #000; border: none; padding: 12px 30px; font-size: 15px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%;">
             Visualizar Tela do Cliente
         </button>
     `;
@@ -249,8 +246,10 @@ function exibirModalAceite() {
         
         document.body.removeChild(overlay);
 
-        // Avisa o cliente para disparar a oferta de mídia configurada
-        signalingChannel.publish('admin-autorizou', { autorizado: true });
+        // Envia a confirmação para o cliente começar o streaming
+        if (signalingChannel) {
+            signalingChannel.publish('admin-autorizou', { autorizado: true });
+        }
     });
 }
 
@@ -266,7 +265,7 @@ function sendChat() {
         input.value = '';
     } else {
         const input = document.getElementById('clientChatInput');
-        const text = input.value.trim();
+        const text = text = input.value.trim();
         if(!text) return;
         chatChannel.publish('msg', { sender: 'cliente', text: text });
         input.value = '';
