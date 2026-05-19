@@ -1,0 +1,309 @@
+:root {
+    --neon-main: #00ff66;
+    --neon-glow: rgba(0, 255, 102, 0.3);
+    --bg-dark: #060913;
+    --sidebar-bg: #0b1120;
+    --card-bg: #0f172a;
+    --border-color: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #64748b;
+}
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    font-family: sans-serif; 
+}
+
+body { 
+    background: var(--bg-dark); 
+    color: var(--text-main); 
+    height: 100vh; 
+    overflow: hidden; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+/* TELA DE LOGIN */
+#login-screen { 
+    background: var(--card-bg); 
+    border: 1px solid var(--border-color); 
+    padding: 40px; 
+    border-radius: 12px; 
+    width: 100%; 
+    max-width: 400px; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+    text-align: center; 
+}
+
+#login-screen h2 { 
+    color: var(--neon-main); 
+    margin-bottom: 20px; 
+    text-shadow: 0 0 10px var(--neon-glow); 
+}
+
+.form-group { 
+    margin-bottom: 20px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 6px; 
+    text-align: left; 
+}
+
+.form-group label { 
+    font-size: 12px; 
+    color: var(--text-muted); 
+}
+
+.form-group input { 
+    background: var(--bg-dark); 
+    border: 1px solid var(--border-color); 
+    padding: 12px; 
+    border-radius: 6px; 
+    color: var(--text-main); 
+    font-size: 14px; 
+}
+
+.form-group input:focus { 
+    border-color: var(--neon-main); 
+    outline: none; 
+}
+
+.btn { 
+    background: var(--neon-main); 
+    color: var(--bg-dark); 
+    border: none; 
+    padding: 12px 20px; 
+    border-radius: 6px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    width: 100%; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+}
+
+.btn:hover { 
+    opacity: 0.9; 
+}
+
+/* ESTRUTURA DOS PAINÉIS */
+.app-container { 
+    width: 100vw; 
+    height: 100vh; 
+    display: none; 
+}
+
+/* PAINEL ADMINISTRADOR (TÉCNICO) */
+#panel-admin { display: none; }
+.admin-layout { display: flex; width: 100%; height: 100%; }
+
+aside { 
+    width: 260px; 
+    background: var(--sidebar-bg); 
+    border-right: 1px solid var(--border-color); 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    padding: 20px; 
+}
+
+.logo-area h2 { 
+    font-size: 20px; 
+    color: var(--neon-main); 
+    text-shadow: 0 0 10px var(--neon-glow); 
+    text-align: center; 
+    padding-bottom: 20px; 
+    border-bottom: 1px solid var(--border-color); 
+}
+
+.token-generator-box { 
+    background: var(--bg-dark); 
+    border: 1px solid var(--border-color); 
+    padding: 15px; 
+    border-radius: 8px; 
+    margin-top: 20px; 
+    text-align: center; 
+}
+
+.token-display { 
+    font-size: 22px; 
+    font-weight: bold; 
+    color: #fff; 
+    letter-spacing: 2px; 
+    margin: 10px 0; 
+    padding: 8px; 
+    background: var(--card-bg); 
+    border-radius: 4px; 
+    border: 1px dashed var(--neon-main); 
+}
+
+main { 
+    flex-grow: 1; 
+    padding: 30px; 
+    display: flex; 
+    flex-direction: column; 
+    height: 100%; 
+}
+
+.remote-layout { 
+    display: grid; 
+    grid-template-columns: 1fr 320px; 
+    gap: 20px; 
+    height: calc(100vh - 100px); 
+    margin-top: 20px; 
+}
+
+.remote-screen { 
+    background: #020408; 
+    border: 2px dashed var(--border-color); 
+    border-radius: 8px; 
+    position: relative; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    overflow: hidden; 
+}
+
+.screen-placeholder { 
+    text-align: center; 
+    color: var(--text-muted); 
+}
+
+.screen-placeholder i { 
+    font-size: 48px; 
+    margin-bottom: 15px; 
+}
+
+video { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: contain; 
+    display: none; 
+}
+
+/* CAIXA DE CHAT COMPARTILHADA */
+.chat-box { 
+    background: var(--sidebar-bg); 
+    border: 1px solid var(--border-color); 
+    border-radius: 8px; 
+    display: flex; 
+    flex-direction: column; 
+    height: 100%; 
+    overflow: hidden; 
+}
+
+.chat-header { 
+    background: var(--card-bg); 
+    padding: 15px; 
+    border-bottom: 1px solid var(--border-color); 
+    font-weight: bold; 
+    font-size: 14px; 
+    color: var(--neon-main); 
+}
+
+.chat-messages { 
+    flex-grow: 1; 
+    padding: 15px; 
+    overflow-y: auto; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    font-size: 13px; 
+}
+
+.msg { 
+    padding: 8px 12px; 
+    border-radius: 6px; 
+    max-width: 85%; 
+    line-height: 1.4; 
+}
+
+.msg.me { 
+    background: var(--neon-main); 
+    color: var(--bg-dark); 
+    align-self: flex-end; 
+}
+
+.msg.other { 
+    background: var(--card-bg); 
+    color: var(--text-main); 
+    align-self: flex-start; 
+    border: 1px solid var(--border-color); 
+}
+
+.chat-input-area { 
+    padding: 10px; 
+    background: var(--card-bg); 
+    border-top: 1px solid var(--border-color); 
+    display: flex; 
+    gap: 8px; 
+}
+
+.chat-input-area input { 
+    flex-grow: 1; 
+    background: var(--bg-dark); 
+    border: 1px solid var(--border-color); 
+    padding: 10px; 
+    border-radius: 4px; 
+    color: #fff; 
+}
+
+.chat-input-area button { 
+    background: var(--neon-main); 
+    border: none; 
+    padding: 0 15px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    color: var(--bg-dark); 
+    font-weight: bold; 
+}
+
+/* PAINEL DO CLIENTE */
+#panel-cliente { 
+    display: none; 
+    width: 100vw; 
+    height: 100vh; 
+    background: var(--bg-dark); 
+    padding: 40px; 
+}
+
+.client-grid { 
+    display: grid; 
+    grid-template-columns: 400px 1fr; 
+    gap: 30px; 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    height: 100%; 
+}
+
+.client-card { 
+    background: var(--sidebar-bg); 
+    border: 1px solid var(--border-color); 
+    padding: 30px; 
+    border-radius: 12px; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+}
+
+.client-card h2 { 
+    color: var(--neon-main); 
+    margin-bottom: 15px; 
+}
+
+/* CURSOR GUIA VIRTUAL */
+#pointer-guia {
+    position: fixed; 
+    width: 24px; 
+    height: 24px; 
+    border: 3px solid #ff3333; 
+    border-radius: 50%;
+    background: rgba(255, 51, 51, 0.3); 
+    pointer-events: none; 
+    z-index: 999999; 
+    display: none;
+    transform: translate(-50%, -50%); 
+    box-shadow: 0 0 10px #ff3333;
+}
